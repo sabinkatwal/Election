@@ -1,6 +1,6 @@
 # Nepal Election 2081 Live Dashboard
 
-This is a web-based live dashboard for the Nepal Election 2081 (2024-2025 AD), providing real-time visualizations and insights into electoral data, focusing on proportional representation analysis.
+This is a web-based live dashboard for the Nepal Election 2082 (2026 AD), providing real-time visualizations and insights into electoral data, focusing on proportional representation analysis.
 
 ## Features
 
