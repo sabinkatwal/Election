@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nepal Election 2081 — Live Results</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ── RESET & ROOT ──────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink:       #0a0c10;
+  --paper:     #0e1117;
+  --surface:   #141820;
+  --lift:      #1c2230;
+  --rim:       rgba(255,255,255,0.07);
+  --rim2:      rgba(255,255,255,0.12);
+  --gold:      #e8a020;
+  --gold-dim:  rgba(232,160,32,0.15);
+  --gold-glow: rgba(232,160,32,0.35);
+  --crimson:   #d63a3a;
+  --teal:      #1cb8a0;
+  --slate:     #8899aa;
+  --body:      #c8d4e0;
+  --mono:      'DM Mono', monospace;
+  --sans:      'Syne', sans-serif;
+  --deva:      'Noto Sans Devanagari', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--paper);
+  color: var(--body);
+  font-family: var(--deva);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* diagonal stripe texture */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 28px,
+    rgba(255,255,255,0.012) 28px,
+    rgba(255,255,255,0.012) 29px
+  );
+  pointer-events: none;
+}
+
+.wrap {
+  position: relative; z-index: 1;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 32px 20px 72px;
+}
+
+/* ── MASTHEAD ──────────────────────────────────── */
+.masthead {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 20px;
+  padding: 28px 32px 24px;
+  background: var(--surface);
+  border: 1px solid var(--rim);
+  border-radius: 20px;
+  margin-bottom: 28px;
+  position: relative;
+  overflow: hidden;
+}
+.masthead::after {
+  content: 'निर्वाचन';
+  position: absolute;
+  right: -10px; top: -18px;
+  font-family: var(--sans);
+  font-size: 7rem;
+  font-weight: 800;
+  color: rgba(232,160,32,0.04);
+  letter-spacing: -4px;
+  pointer-events: none;
+  user-select: none;
+  line-height: 1;
+}
+.masthead-left {}
+.flag-strip {
+  display: flex; gap: 4px; margin-bottom: 12px;
+  align-items: center;
+}
+.flag-strip span {
+  display: block; height: 4px; border-radius: 2px;
+}
+.flag-strip .f1 { width: 32px; background: #003087; }
+.flag-strip .f2 { width: 20px; background: #dc143c; }
+.flag-strip .f3 { width: 32px; background: #003087; }
+.flag-strip .sep { width: 1px; height: 12px; background: var(--rim2); margin: 0 4px; }
+.flag-strip .label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--slate);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.site-title {
+  font-family: var(--sans);
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1.05;
+  color: #fff;
+}
+.site-title em {
+  font-style: normal;
+  color: var(--gold);
+}
+.site-sub {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--slate);
+  letter-spacing: 0.8px;
+}
+
+.masthead-right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+}
+.status-ring {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  transition: all 0.3s;
+  cursor: default;
+}
+.status-ring.loading { border-color: rgba(232,160,32,0.4); color: var(--gold); background: var(--gold-dim); }
+.status-ring.live    { border-color: rgba(28,184,160,0.4); color: var(--teal); background: rgba(28,184,160,0.1); }
+.status-ring.error   { border-color: rgba(214,58,58,0.4);  color: var(--crimson); background: rgba(214,58,58,0.08); }
+.dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor;
+  animation: blink 1.6s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.3;transform:scale(0.6)} }
+
+.ts {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--slate);
+}
+
+.ctrl-row {
+  display: flex; gap: 8px; align-items: center;
+}
+.btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 16px;
+  background: var(--gold);
+  color: #000;
+  border: none; border-radius: 8px;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.btn:hover { background: #f0b030; transform: translateY(-1px); box-shadow: 0 6px 20px var(--gold-glow); }
+.btn:active { transform: translateY(0); }
+.btn svg { flex-shrink: 0; }
+.btn.spin svg { animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── TICKER / INLINE ERROR ─────────────────────── */
+.err-bar {
+  display: none;
+  align-items: center; gap: 10px;
+  padding: 10px 18px;
+  margin-bottom: 20px;
+  background: rgba(214,58,58,0.07);
+  border: 1px solid rgba(214,58,58,0.22);
+  border-radius: 10px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: #e87070;
+}
+.err-bar.show { display: flex; }
+
+/* ── KPI STRIP ─────────────────────────────────── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 26px;
+}
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--rim);
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 4px;
+  transition: border-color 0.2s, transform 0.2s;
+  cursor: default;
+}
+.kpi:hover { border-color: var(--rim2); transform: translateY(-2px); }
+.kpi-label {
+  font-family: var(--mono);
+  font-size: 0.63rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--slate);
+}
+.kpi-value {
+  font-family: var(--mono);
+  font-size: 1.85rem;
+  font-weight: 500;
+  line-height: 1;
+  color: #fff;
+}
+.kpi-sub { font-size: 0.72rem; color: var(--slate); }
+.kpi.accent  .kpi-value { color: var(--gold); }
+.kpi.green   .kpi-value { color: var(--teal); }
+.kpi.red-kpi .kpi-value { color: var(--crimson); }
+
+/* ── CHARTS GRID ───────────────────────────────── */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 20px;
+  margin-bottom: 26px;
+}
+@media (max-width: 960px) { .charts-row { grid-template-columns: 1fr; } }
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--rim);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex; flex-direction: column; gap: 14px;
+  transition: border-color 0.2s;
+}
+.panel:hover { border-color: var(--rim2); }
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--rim);
+  padding-bottom: 12px;
+}
+.panel-title {
+  font-family: var(--sans);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.2px;
+}
+.tag {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--gold-dim);
+  color: var(--gold);
+  border: 1px solid rgba(232,160,32,0.25);
+  letter-spacing: 0.5px;
+}
+.chart-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.chart-wrap canvas { max-height: 300px; }
+
+/* ── PARTY TABLE ───────────────────────────────── */
+.table-panel {
+  background: var(--surface);
+  border: 1px solid var(--rim);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 26px;
+}
+.table-head {
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--rim);
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+}
+
+/* Column layout: rank | name+bar | wins | pr-votes | share */
+.col-def {
+  display: grid;
+  grid-template-columns: 36px 1fr 80px 120px 80px;
+  gap: 8px;
+  align-items: center;
+}
+@media (max-width: 680px) {
+  .col-def { grid-template-columns: 28px 1fr 70px 90px; }
+  .col-hide { display: none !important; }
+}
+
+.thead {
+  padding: 8px 10px 12px;
+  font-family: var(--mono);
+  font-size: 0.63rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--slate);
+  border-bottom: 1px solid var(--rim);
+  margin-bottom: 2px;
+}
+.thead span { text-align: right; }
+.thead span:nth-child(2) { text-align: left; }
+
+.party-row {
+  padding: 11px 10px;
+  border-radius: 10px;
+  transition: background 0.15s;
+  cursor: default;
+}
+.party-row:hover { background: rgba(255,255,255,0.03); }
+
+.rank-cell {
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--slate);
+}
+.rank-cell.r1 { color: var(--gold); font-weight: 700; font-size: 0.9rem; }
+.rank-cell.r2 { color: #9ab0c4; font-size: 0.88rem; }
+.rank-cell.r3 { color: #a07850; font-size: 0.88rem; }
+
+.name-cell { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.name-text {
+  font-family: var(--deva);
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bar-track { height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+.bar-fill  { height: 100%; border-radius: 2px; transition: width 0.7s cubic-bezier(.22,1,.36,1); }
+
+.n {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  text-align: right;
+  color: var(--body);
+}
+.n.wins  { color: var(--teal); font-weight: 500; }
+.n.votes { color: var(--body); }
+.n.pct   { color: var(--slate); font-size: 0.72rem; }
+
+/* ── FOOTER ────────────────────────────────────── */
+footer {
+  text-align: center;
+  padding-top: 20px;
+  border-top: 1px solid var(--rim);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--slate);
+  letter-spacing: 0.5px;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- MASTHEAD -->
+  <header class="masthead">
+    <div class="masthead-left">
+      <div class="flag-strip">
+        <span class="f1"></span><span class="f2"></span><span class="f3"></span>
+        <span class="sep"></span>
+        <span class="label">Federal Republic of Nepal</span>
+      </div>
+      <h1 class="site-title">Nepal <em>Election</em><br>Live Dashboard</h1>
+      <p class="site-sub">SOURCE: ONLINEKHABAR.COM &nbsp;·&nbsp; PR VOTES &amp; WINS</p>
+    </div>
+    <div class="masthead-right">
+      <div id="statusRing" class="status-ring loading">
+        <span class="dot"></span>
+        <span id="statusTxt">Loading…</span>
+      </div>
+      <div class="ts" id="tsTxt">—</div>
+      <div class="ctrl-row">
+        <button class="btn" id="refreshBtn" onclick="loadData()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ERROR -->
+  <div class="err-bar" id="errBar">⚠&nbsp; Live data unavailable — showing cached results</div>
+
+  <!-- KPIs -->
+  <div class="kpi-row">
+    <div class="kpi accent">
+      <div class="kpi-label">Total PR Votes</div>
+      <div class="kpi-value" id="kpi-votes">—</div>
+      <div class="kpi-sub">समानुपातिक मत</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">Total Wins (जित)</div>
+      <div class="kpi-value" id="kpi-wins">—</div>
+      <div class="kpi-sub">declared seats</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Parties Reporting</div>
+      <div class="kpi-value" id="kpi-parties">—</div>
+      <div class="kpi-sub">with votes or wins</div>
+    </div>
+    <div class="kpi red-kpi">
+      <div class="kpi-label">Leading Party</div>
+      <div class="kpi-value" id="kpi-leader" style="font-size:1.1rem">—</div>
+      <div class="kpi-sub" id="kpi-leader-sub">—</div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts-row">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Wins per Party &nbsp;<span style="color:var(--slate);font-weight:400;font-size:.8rem">(जित — top 15)</span></span>
+        <span class="tag">BAR</span>
+      </div>
+      <div class="chart-wrap"><canvas id="cWins"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">PR Vote Share <span style="color:var(--slate);font-weight:400;font-size:.8rem">(top 10)</span></span>
+        <span class="tag">DOUGHNUT</span>
+      </div>
+      <div class="chart-wrap"><canvas id="cPR"></canvas></div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-panel">
+    <div class="table-head">
+      <span class="panel-title">All Parties</span>
+      <span class="tag" id="tblBadge">—</span>
+    </div>
+    <div class="col-def thead">
+      <span>#</span>
+      <span style="text-align:left">Party</span>
+      <span>जित</span>
+      <span>PR Votes</span>
+      <span class="col-hide">Share %</span>
+    </div>
+    <div id="partyList"></div>
+  </div>
+
+  <footer>Nepal Live Election Dashboard &nbsp;·&nbsp; Auto-refreshes every 60s &nbsp;·&nbsp; Data via OnlineKhabar</footer>
+</div>
+
+<script>
+'use strict';
+// ══════════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════════
+const SRC      = 'https://election.onlinekhabar.com/parties';
+const PROXIES  = [
+  'https://api.allorigins.win/raw?url=',
+  'https://corsproxy.io/?url=',
+  'https://api.codetabs.com/v1/proxy?quest='
+];
+const TIMEOUT  = 14000;
+const INTERVAL = 60000;
+
+// ══════════════════════════════════════════════════
+//  PARTY COLOURS  — keyed by Devanagari substring
+// ══════════════════════════════════════════════════
+const COLOURS = {
+  'रास्वपा':           '#1da1f2',
+  'नेपाली कांग्रेस':  '#1976d2',
+  'कांग्रेस':          '#1976d2',
+  'एमाले':             '#e53935',
+  'नेकपा':             '#c2185b',
+  'राप्रपा':           '#ff8f00',
+  'माओवादी':           '#b71c1c',
+  'जसपा':              '#7b1fa2',
+  'नागरिक उन्मुक्ति': '#00897b',
+  'जनमत':              '#2e7d32',
+  'लोसपा':             '#00838f',
+  'नविन':              '#6a1b9a',
+};
+function autoColour(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return `hsl(${h % 360}, 58%, 52%)`;
+}
+function getColour(name) {
+  for (const k of Object.keys(COLOURS)) if (name.includes(k)) return COLOURS[k];
+  return autoColour(name);
+}
+
+// ══════════════════════════════════════════════════
+//  NEPALI NUMERAL → INTEGER
+// ══════════════════════════════════════════════════
+const NEP_DIGITS = '०१२३४५६७८९';
+function nepToNum(s) {
+  if (s == null) return 0;
+  const n = parseInt(
+    String(s)
+      .replace(/[०-९]/g, d => NEP_DIGITS.indexOf(d))
+      .replace(/,/g, ''),
+    10
+  );
+  return isNaN(n) ? 0 : n;
+}
+
+// ══════════════════════════════════════════════════
+//  JUNK NAMES — filter out UI labels & placeholders
+// ══════════════════════════════════════════════════
+const JUNK = new Set([
+  'होमपेज','जित','अग्रता','सिट','कुल सिट','समानुपातिक','समानुपातिक मत',
+  'मत','पार्टी','नाम','नतिजा','परिणाम','कुल','total','home','header'
+]);
+function isJunk(s) {
+  if (!s) return true;
+  s = s.trim();
+  if (s.length < 2 || s.length > 70)      return true;
+  if (JUNK.has(s))                          return true;
+  if (/^[\d०-९\s,.\-]+$/.test(s))          return true;
+  if (/^(home|page|nav|menu|footer)/i.test(s)) return true;
+  // must have ≥2 Devanagari chars to qualify as a real party name
+  return (s.match(/[\u0900-\u097F]/g) || []).length < 2;
+}
+
+// ══════════════════════════════════════════════════
+//  FETCH  (timeout + proxy fallback)
+// ══════════════════════════════════════════════════
+async function timedFetch(url) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), TIMEOUT);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.text();
+  } catch(e) { clearTimeout(t); throw e; }
+}
+
+async function fetchPage() {
+  for (const proxy of PROXIES) {
+    const url = proxy + encodeURIComponent(SRC);
+    try {
+      console.log('[fetch]', proxy);
+      const html = await timedFetch(url);
+      if (html && html.length > 500) return html;
+    } catch(e) {
+      console.warn('[fetch] failed:', e.message);
+    }
+  }
+  throw new Error('All proxies exhausted');
+}
+
+// ══════════════════════════════════════════════════
+//  DOM SCRAPER
+//  Extracts ONLY: party name, जित (wins), समानुपातिक मत (PR votes)
+//  Strategy A — <table> rows
+//  Strategy B — div cards with class hints
+//  Strategy C — body-text block scan
+// ══════════════════════════════════════════════════
+function scrape(rawHtml) {
+  const doc = new DOMParser().parseFromString(rawHtml, 'text/html');
+  let entries = [];
+
+  // ── A: tables ──────────────────────────────────
+  doc.querySelectorAll('table').forEach(tbl => {
+    // collect header labels to understand column positions
+    const colLabels = Array.from(tbl.querySelectorAll('th')).map(th => th.innerText.trim());
+    tbl.querySelectorAll('tr').forEach(row => {
+      const cells = Array.from(row.querySelectorAll('td'));
+      if (cells.length < 2) return;
+      const texts = cells.map(c => c.innerText.trim());
+      const e = extractFields(texts);
+      if (e) entries.push(e);
+    });
+  });
+
+  // ── B: div cards ───────────────────────────────
+  if (entries.length < 3) {
+    const sel = "[class*='party'],[class*='result'],[class*='card'],[class*='election'],[class*='item']";
+    doc.querySelectorAll(sel).forEach(el => {
+      if (el.querySelector(sel)) return; // skip containers
+      const lines = el.innerText.split('\n').map(s => s.trim()).filter(Boolean);
+      const e = extractFields(lines);
+      if (e) entries.push(e);
+    });
+  }
+
+  // ── C: body-text block scan ────────────────────
+  if (entries.length < 3) {
+    console.log('[scrape] falling back to text scan');
+    entries = textScan(doc.body.innerText);
+  }
+
+  // Deduplicate: keep entry with most data per name
+  const map = new Map();
+  for (const e of entries) {
+    const prev = map.get(e.name);
+    // prefer entry with higher vote count (more complete data)
+    if (!prev || e.votes > prev.votes || (e.votes === prev.votes && e.wins > prev.wins)) {
+      map.set(e.name, e);
+    }
+  }
+  return [...map.values()];
+}
+
+// Given a flat list of text tokens (cells or lines),
+// extract name + wins + PR votes using labeled lookup
+const LABEL_JUNK = new Set(['अग्रता','जित','सिट','मत','समानुपातिक','कुल','पार्टी']);
+
+function extractFields(tokens) {
+  // 1. Find party name: first Devanagari-heavy, non-label token
+  const name = tokens.find(t => {
+    if (isJunk(t)) return false;
+    if (LABEL_JUNK.has(t)) return false;
+    return (t.match(/[\u0900-\u097F]/g) || []).length >= 2;
+  });
+  if (!name) return null;
+
+  // 2. Labeled lookup: find label token, then take the next numeric token
+  function labeled(label) {
+    const idx = tokens.findIndex(t => t === label || t.startsWith(label));
+    if (idx === -1) return 0;
+    for (let i = idx + 1; i < Math.min(idx + 5, tokens.length); i++) {
+      const tok = tokens[i];
+      // treat "—", "-", empty, or missing as 0
+      if (tok === '—' || tok === '-' || tok === '') return 0;
+      const n = nepToNum(tok);
+      if (n > 0) return n;
+    }
+    return 0;
+  }
+
+  const wins  = labeled('जित'); // missing or "—" → 0
+  const votes = labeled('समानुपातिक मत') || labeled('समानुपातिक') || labeled('मत');
+
+  // only include if there's at least some data
+  if (wins === 0 && votes === 0) return null;
+
+  // Normalise known name aliases to canonical party name
+  const canonical = name === 'रवि लामिछाने' ? 'राष्ट्रिय स्वतन्त्र पार्टी' : name;
+  return { name: canonical, wins, votes };
+}
+
+// Last-resort scan: find "जित … N" and "समानुपातिक मत … N" near a Devanagari name
+function textScan(text) {
+  const results = [];
+  // Match: name then जित then number, across short spans
+  const blocks = text.split(/\n{2,}/); // paragraph blocks
+  for (const block of blocks) {
+    const lines = block.split('\n').map(s => s.trim()).filter(Boolean);
+    const e = extractFields(lines);
+    if (e) results.push(e);
+  }
+  return results;
+}
+
+// ══════════════════════════════════════════════════
+//  CHART INSTANCES
+// ══════════════════════════════════════════════════
+const charts = {};
+const TT = {
+  backgroundColor: '#1c2230',
+  borderColor: 'rgba(255,255,255,0.08)',
+  borderWidth: 1,
+  titleColor: '#e2e8f0',
+  bodyColor: '#8899aa',
+  padding: 10,
+  cornerRadius: 8,
+};
+const LEG = {
+  labels: {
+    color: '#8899aa',
+    font: { family: "'DM Mono', monospace", size: 10 },
+    boxWidth: 10,
+    padding: 12,
+  }
+};
+
+function kill(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+function buildWinsBar(parties) {
+  // top 15 by wins, include parties with 0 wins if they have votes
+  const top = [...parties]
+    .sort((a, b) => b.wins - a.wins || b.votes - a.votes)
+    .slice(0, 15)
+    .filter(p => p.wins > 0);  // only show parties that actually have wins
+
+  if (top.length === 0) {
+    // show top 10 by votes instead
+    const byVote = [...parties].sort((a,b)=>b.votes-a.votes).slice(0,10);
+    top.push(...byVote);
+  }
+
+  const labels = top.map(p => p.name);
+  const data   = top.map(p => p.wins);
+  const colors = top.map(p => getColour(p.name));
+
+  kill('wins');
+  charts.wins = new Chart(document.getElementById('cWins'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'जित (Wins)',
+        data,
+        backgroundColor: colors.map(c => c + 'cc'),
+        borderColor: colors,
+        borderWidth: 1,
+        borderRadius: 5,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          ticks: { color: '#64748b', font: { family: "'DM Mono',monospace", size: 10 } },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        },
+        y: {
+          ticks: {
+            color: '#c8d4e0',
+            font: { family: "'Noto Sans Devanagari',sans-serif", size: 12 },
+          },
+          grid: { display: false },
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { ...TT },
+      },
+      animation: { duration: 700, easing: 'easeOutQuart' },
+    }
+  });
+  // dynamically size canvas height
+  const ch = document.getElementById('cWins');
+  ch.style.height = Math.max(280, top.length * 32) + 'px';
+}
+
+function buildPRDoughnut(parties) {
+  const top  = [...parties].sort((a,b)=>b.votes-a.votes).slice(0,10);
+  const rest = parties.slice(10).reduce((s,p)=>s+p.votes,0);
+  const labels = top.map(p=>p.name);
+  const data   = top.map(p=>p.votes);
+  if (rest > 0) { labels.push('अन्य'); data.push(rest); }
+  const colors = labels.map(l => l==='अन्य' ? '#3a4555' : getColour(l));
+
+  kill('pr');
+  charts.pr = new Chart(document.getElementById('cPR'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: '#141820',
+        hoverOffset: 10,
+      }]
+    },
+    options: {
+      cutout: '60%',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: LEG,
+        tooltip: {
+          ...TT,
+          callbacks: {
+            label: ctx => {
+              const tot = ctx.dataset.data.reduce((a,b)=>a+b,0);
+              const pct = ((ctx.parsed / tot)*100).toFixed(1);
+              return ` ${ctx.parsed.toLocaleString()} (${pct}%)`;
+            }
+          }
+        },
+      },
+      animation: { animateRotate: true, duration: 800, easing: 'easeOutQuart' },
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════
+let cache = null;
+
+function render(parties) {
+  if (!parties || parties.length === 0) return;
+  cache = parties;
+
+  const byVotes = [...parties].sort((a,b)=>b.votes-a.votes);
+  const totalVotes = parties.reduce((s,p)=>s+p.votes,0);
+  const totalWins  = parties.reduce((s,p)=>s+p.wins,0);
+  const leader     = [...parties].sort((a,b)=>b.wins-a.wins||b.votes-a.votes)[0];
+
+  // KPIs
+  set('kpi-votes',   totalVotes.toLocaleString());
+  set('kpi-wins',    totalWins.toLocaleString());
+  set('kpi-parties', parties.length);
+  set('kpi-leader',  leader ? leader.name : '—');
+  set('kpi-leader-sub', leader ? `${leader.wins} wins · ${leader.votes.toLocaleString()} votes` : '—');
+
+  // Charts
+  buildWinsBar(parties);
+  buildPRDoughnut(byVotes);
+
+  // Table
+  const list = document.getElementById('partyList');
+  list.innerHTML = '';
+  set('tblBadge', `${parties.length} PARTIES`);
+
+  byVotes.forEach((p, i) => {
+    const pct   = totalVotes > 0 ? ((p.votes / totalVotes)*100).toFixed(2) : '0.00';
+    const color = getColour(p.name);
+    const rc    = i===0?'r1':i===1?'r2':i===2?'r3':'';
+    const rl    = i===0?'①':i===1?'②':i===2?'③':(i+1);
+
+    const row = document.createElement('div');
+    row.className = 'col-def party-row';
+    row.innerHTML = `
+      <span class="rank-cell ${rc}">${rl}</span>
+      <div class="name-cell">
+        <span class="name-text" title="${p.name}" style="color:${color}">${p.name}</span>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${pct}%;background:${color};opacity:0.8"></div>
+        </div>
+      </div>
+      <span class="n wins">${p.wins > 0 ? p.wins : '—'}</span>
+      <span class="n votes">${p.votes > 0 ? p.votes.toLocaleString() : '—'}</span>
+      <span class="n pct col-hide">${pct}%</span>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function set(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+
+// ══════════════════════════════════════════════════
+//  STATUS HELPERS
+// ══════════════════════════════════════════════════
+function setStatus(state, msg) {
+  const ring = document.getElementById('statusRing');
+  ring.className = 'status-ring ' + state;
+  set('statusTxt', msg);
+}
+function showErr(v) {
+  document.getElementById('errBar').classList.toggle('show', v);
+}
+
+// ══════════════════════════════════════════════════
+//  LOAD
+// ══════════════════════════════════════════════════
+async function loadData() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spin');
+  setStatus('loading', 'Fetching…');
+
+  try {
+    const html    = await fetchPage();
+    const parties = scrape(html);
+
+    if (parties.length === 0) throw new Error('No parties parsed');
+
+    render(parties);
+    setStatus('live', `Live · ${parties.length} parties`);
+    showErr(false);
+    console.log('[render] OK —', parties.length, 'parties');
+
+  } catch (e) {
+    console.error('[load]', e);
+    if (cache) {
+      render(cache);
+      setStatus('error', 'Cached');
+      showErr(true);
+    } else {
+      setStatus('error', 'Unavailable');
+    }
+  } finally {
+    btn.classList.remove('spin');
+    set('tsTxt', 'Updated ' + new Date().toLocaleTimeString());
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════
+loadData();
+setInterval(loadData, INTERVAL);
+</script>
+</body>
+</html>

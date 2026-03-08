@@ -1,0 +1,160 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nepal PR Vote Live Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+body{
+background:#0f0e17;
+color:white;
+font-family:system-ui;
+padding:30px;
+}
+h1{margin-bottom:10px}
+#status{margin-bottom:20px;color:#ff8906}
+canvas{max-width:700px}
+.list{margin-top:30px}
+.row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222}
+button{padding:8px 14px;background:#ff8906;border:none;border-radius:6px;color:black;font-weight:bold;cursor:pointer}
+</style>
+</head>
+
+<body>
+
+<h1>Nepal PR Vote Dashboard</h1>
+<div id="status">Loading...</div>
+<button onclick="loadData()">Refresh</button>
+
+<canvas id="chart"></canvas>
+
+<div class="list" id="partyList"></div>
+
+<script>
+
+const SOURCE = "https://election.onlinekhabar.com/parties";
+
+const PROXIES = [
+"https://api.allorigins.win/raw?url=",
+"https://corsproxy.io/?url=",
+"https://api.codetabs.com/v1/proxy?quest="
+];
+
+function nepToNum(str){
+if(!str) return 0;
+return parseInt(
+str.replace(/[०-९]/g,d=>"०१२३४५६७८९".indexOf(d)).replace(/,/g,"")
+);
+}
+
+async function fetchHTML(){
+
+for(const p of PROXIES){
+try{
+const res = await fetch(p + encodeURIComponent(SOURCE));
+if(res.ok){
+return await res.text();
+}
+}catch(e){}
+}
+
+throw new Error("All proxies failed");
+}
+
+function parseParties(html){
+
+const doc = new DOMParser().parseFromString(html,"text/html");
+
+const text = doc.body.innerText;
+
+const regex = /(.*?)\s*समानुपातिक मत\s*([०-९,]+)/g;
+
+let m;
+const parties = [];
+
+while((m = regex.exec(text)) !== null){
+
+const name = m[1].trim().split("\n").pop().trim();
+const votes = nepToNum(m[2]);
+
+if(name && votes>0){
+parties.push({name,votes});
+}
+}
+
+return parties;
+}
+
+let chart;
+
+function render(data){
+
+data.sort((a,b)=>b.votes-a.votes);
+
+const labels = data.slice(0,10).map(p=>p.name);
+const votes = data.slice(0,10).map(p=>p.votes);
+
+const ctx = document.getElementById("chart");
+
+if(chart) chart.destroy();
+
+chart = new Chart(ctx,{
+type:"doughnut",
+data:{
+labels,
+datasets:[{data:votes}]
+},
+options:{
+plugins:{legend:{labels:{color:"white"}}}
+}
+});
+
+const total = data.reduce((a,b)=>a+b.votes,0);
+
+const list = document.getElementById("partyList");
+list.innerHTML="";
+
+data.slice(0,20).forEach(p=>{
+
+const pct = ((p.votes/total)*100).toFixed(2);
+
+const div=document.createElement("div");
+div.className="row";
+div.innerHTML=`<span>${p.name}</span><span>${p.votes.toLocaleString()} (${pct}%)</span>`;
+list.appendChild(div);
+
+});
+
+}
+
+async function loadData(){
+
+document.getElementById("status").innerText="Fetching live data...";
+
+try{
+
+const html = await fetchHTML();
+
+const parties = parseParties(html);
+
+render(parties);
+
+document.getElementById("status").innerText="Live";
+
+}catch(e){
+
+document.getElementById("status").innerText="Live data unavailable";
+
+}
+
+}
+
+loadData();
+setInterval(loadData,60000);
+
+</script>
+
+</body>
+</html>

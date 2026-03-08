@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nepal Live Election Results 2082</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Nepali&family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0e17;
+    --surface: #1a1828;
+    --surface2: #211e32;
+    --border: rgba(255,255,255,0.07);
+    --text: #fffffe;
+    --muted: #a7a9be;
+    --accent: #ff8906;
+    --green: #06d6a0;
+    --red: #ef476f;
+    --blue: #3a86ff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 32px 20px 60px;
+    background-image:
+      radial-gradient(ellipse at 20% 20%, rgba(255,137,6,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 80%, rgba(14,165,233,0.05) 0%, transparent 60%);
+  }
+  header { text-align: center; margin-bottom: 20px; animation: fadeUp 0.8s ease both; }
+  header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(1.4rem, 4vw, 2.2rem);
+    letter-spacing: -0.02em; color: var(--text); line-height: 1.2;
+  }
+  header h1 span { color: var(--accent); }
+  .divider { width: 60px; height: 2px; background: var(--accent); margin: 10px auto; border-radius: 2px; }
+  header p { color: var(--muted); font-size: 0.82rem; margin-top: 6px; font-weight: 300; letter-spacing: 0.06em; text-transform: uppercase; }
+
+  /* STATUS BAR */
+  .status-bar {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 10px 18px; margin-bottom: 18px;
+    font-size: 0.76rem; flex-wrap: wrap; justify-content: center;
+    animation: fadeUp 0.85s ease 0.05s both;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3); max-width: 820px; width: 100%;
+  }
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 0 0 rgba(6,214,160,0.6); animation: pulse 2s infinite; flex-shrink: 0;
+  }
+  .live-dot.error  { background: var(--red); box-shadow: none; animation: none; }
+  .live-dot.spin   { background: var(--accent); animation: pulse 1s infinite; }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(6,214,160,0.6); }
+    70%  { box-shadow: 0 0 0 7px rgba(6,214,160,0); }
+    100% { box-shadow: 0 0 0 0 rgba(6,214,160,0); }
+  }
+  .status-text { color: var(--muted); flex: 1; }
+  .status-text strong { color: var(--text); }
+  .status-time { color: var(--muted); font-size: 0.68rem; white-space: nowrap; }
+  .btn-sm {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); font-size: 0.7rem; padding: 4px 10px;
+    border-radius: 6px; cursor: pointer; transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif; white-space: nowrap;
+  }
+  .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* PROXY METHODS */
+  .proxy-info {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 16px; margin-bottom: 18px;
+    font-size: 0.72rem; color: var(--muted); max-width: 820px; width: 100%;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    animation: fadeUp 0.85s ease 0.08s both;
+  }
+  .proxy-info span { color: var(--accent); font-weight: 600; }
+  .source-link { color: var(--blue); text-decoration: none; font-size: 0.7rem; }
+  .source-link:hover { text-decoration: underline; }
+
+  /* CONTROLS */
+  .control {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px 22px; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center;
+    animation: fadeUp 0.88s ease 0.1s both; box-shadow: 0 6px 30px rgba(0,0,0,0.3);
+    max-width: 820px; width: 100%;
+  }
+  .control label { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
+  .slider-wrap { display: flex; align-items: center; gap: 10px; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 160px; height: 4px; border-radius: 2px;
+    background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--pct,33%), rgba(255,255,255,0.12) var(--pct,33%), rgba(255,255,255,0.12) 100%);
+    outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 17px; height: 17px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 0 3px rgba(255,137,6,0.25); transition: box-shadow 0.2s;
+  }
+  input[type=range]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 6px rgba(255,137,6,0.18); }
+  .count-badge {
+    background: var(--accent); color: #0f0e17; font-weight: 700; font-size: 0.9rem;
+    width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Serif Display', serif; flex-shrink: 0;
+  }
+
+  /* VOTE INPUTS */
+  .inputs-panel {
+    width: 100%; max-width: 820px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px 20px; margin-bottom: 20px;
+    animation: fadeUp 0.9s ease 0.15s both; box-shadow: 0 6px 30px rgba(0,0,0,0.3);
+  }
+  .inputs-panel-title {
+    font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em;
+    margin-bottom: 12px; display: flex; align-items: center; gap: 10px;
+  }
+  .inputs-panel-title::after { content:''; flex:1; height:1px; background: var(--border); }
+  .inputs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .vote-input-row { display: flex; flex-direction: column; gap: 4px; }
+  .vote-input-label {
+    font-size: 0.68rem; color: var(--muted);
+    font-family: 'Tiro Devanagari Nepali', serif;
+    display: flex; align-items: center; gap: 5px; line-height: 1.3;
+  }
+  .vote-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .vote-input-wrap {
+    display: flex; align-items: center;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; overflow: hidden; transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .vote-input-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255,137,6,0.14); }
+  .vote-input-wrap input[type=number] {
+    flex:1; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem; font-weight: 500; padding: 7px 8px; width: 100%;
+    -moz-appearance: textfield;
+  }
+  .vote-input-wrap input[type=number]::-webkit-outer-spin-button,
+  .vote-input-wrap input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .vote-suffix { font-size: 0.6rem; color: var(--muted); padding: 0 8px; white-space: nowrap; }
+
+  /* LAYOUT */
+  .layout {
+    display: flex; gap: 30px; align-items: flex-start;
+    max-width: 820px; width: 100%; flex-wrap: wrap; justify-content: center;
+    animation: fadeUp 0.9s ease 0.2s both;
+  }
+  .chart-container {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; padding: 24px; flex: 0 0 290px;
+    box-shadow: 0 20px 70px rgba(0,0,0,0.4);
+  }
+  .legend { flex: 1 1 240px; max-height: 460px; overflow-y: auto; padding-right: 4px; }
+  .legend::-webkit-scrollbar { width: 4px; }
+  .legend::-webkit-scrollbar-track { background: transparent; }
+  .legend::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+  .legend-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 11px; border-radius: 9px; margin-bottom: 3px;
+    cursor: pointer; transition: background 0.2s; border: 1px solid transparent;
+  }
+  .legend-item:hover { background: rgba(255,255,255,0.05); border-color: var(--border); }
+  .legend-item.active { background: rgba(255,137,6,0.08); border-color: rgba(255,137,6,0.2); }
+  .dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .legend-info { flex: 1; min-width: 0; }
+  .legend-name { font-size: 0.74rem; color: var(--text); font-weight: 500; line-height: 1.3; font-family: 'Tiro Devanagari Nepali', serif; }
+  .legend-rank {
+    display: inline-block; font-family: 'DM Sans', sans-serif;
+    font-size: 0.58rem; color: #0f0e17; background: var(--accent);
+    border-radius: 3px; padding: 1px 4px; margin-right: 4px; font-weight: 700; vertical-align: middle;
+  }
+  .legend-meta { display: flex; gap: 10px; margin-top: 2px; }
+  .legend-votes { font-size: 0.66rem; color: var(--muted); font-weight: 300; }
+  .legend-pct   { font-size: 0.66rem; font-weight: 600; color: var(--accent); }
+  .bar-wrap { width: 100%; height: 3px; background: rgba(255,255,255,0.07); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @media (max-width: 600px) {
+    .chart-container { flex: 0 0 100%; padding: 18px; }
+    .legend { max-height: 300px; }
+    input[type=range] { width: 110px; }
+    .inputs-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>नेपाल — <span>दलगत मत वितरण</span></h1>
+  <div class="divider"></div>
+  <p>प्रतिनिधि सभा निर्वाचन २०८२ · Live PR Results</p>
+</header>
+
+<div class="status-bar">
+  <div class="live-dot spin" id="liveDot"></div>
+  <span class="status-text" id="statusText"><strong>Loading...</strong> Fetching from Election Commission Nepal</span>
+  <span class="status-time" id="statusTime"></span>
+  <button class="btn-sm" onclick="fetchLive()">↺ Refresh</button>
+  <a href="https://result.election.gov.np/PRVoteChartResult2082.aspx" target="_blank" class="source-link btn-sm">↗ Source</a>
+</div>
+
+<div class="proxy-info">
+  📡 <span>Data source:</span> result.election.gov.np/PRVoteChartResult2082.aspx &nbsp;·&nbsp; Auto-refreshes every 60s
+</div>
+
+<div class="control">
+  <label>Show Top Parties</label>
+  <div class="slider-wrap">
+    <span style="font-size:0.72rem;color:var(--muted)">1</span>
+    <input type="range" id="topSlider" min="1" max="15" value="6" step="1">
+    <span style="font-size:0.72rem;color:var(--muted)">15</span>
+  </div>
+  <div class="count-badge" id="countBadge">6</div>
+</div>
+
+<div class="inputs-panel">
+  <div class="inputs-panel-title">
+    Edit / Override Vote Counts
+    <button class="btn-sm" id="resetBtn">↺ Reset to Live</button>
+  </div>
+  <div class="inputs-grid" id="inputsGrid"></div>
+</div>
+
+<div class="layout">
+  <div class="chart-container">
+    <canvas id="pie" width="270" height="270"></canvas>
+  </div>
+  <div class="legend" id="legend"></div>
+</div>
+
+<script>
+// ── Seed / fallback data ────────────────────────────────────────────────────
+const SEED = [
+  { name: "राष्ट्रिय स्वतन्त्र पार्टी", votes: 341287 },
+  { name: "नेपाली काँग्रेस",             votes: 104149 },
+  { name: "नेकपा (एमाले)",               votes: 84330  },
+  { name: "नेपाली कम्युनिष्ट पार्टी",    votes: 37707  },
+  { name: "राष्ट्रिय प्रजातन्त्र पार्टी",votes: 26715  },
+  { name: "श्रम संस्कृति पार्टी",        votes: 12805  },
+  { name: "राष्ट्रिय परिवर्तन पार्टी",   votes: 8763   },
+  { name: "नेपाल मजदुर किसान पार्टी",    votes: 2699   },
+  { name: "जनता समाजवादी पार्टी",        votes: 2456   },
+  { name: "नेकपा (माओवादी)",             votes: 2337   },
+  { name: "राष्ट्र निर्माण दल नेपाल",   votes: 2056   },
+  { name: "जनमत पार्टी",                 votes: 1815   },
+  { name: "एकल चिन्ह चकिया",             votes: 1750   },
+  { name: "नेपाल जनता संरक्षण पार्टी",  votes: 1328   },
+  { name: "प्रगतिशील लोकतान्त्रिक पार्टी", votes: 1235 },
+];
+
+const palette = [
+  "#ff8906","#3a86ff","#06d6a0","#e53170","#ffd166",
+  "#8338ec","#f25f4c","#118ab2","#7b2d8b","#ef476f",
+  "#fb5607","#3d9970","#ff006e","#8ecae6","#219ebc"
+];
+
+let liveParties  = SEED.map(p => ({ ...p }));
+let parties      = SEED.map(p => ({ ...p }));
+let isOverridden = false;
+
+const slider     = document.getElementById('topSlider');
+const badge      = document.getElementById('countBadge');
+const legendEl   = document.getElementById('legend');
+const inputsGrid = document.getElementById('inputsGrid');
+const resetBtn   = document.getElementById('resetBtn');
+const liveDot    = document.getElementById('liveDot');
+const statusText = document.getElementById('statusText');
+const statusTime = document.getElementById('statusTime');
+const ctx        = document.getElementById('pie').getContext('2d');
+
+// ── Chart ───────────────────────────────────────────────────────────────────
+const chart = new Chart(ctx, {
+  type: 'doughnut',
+  data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderColor: '#0f0e17', borderWidth: 2, hoverBorderWidth: 3, hoverOffset: 12 }] },
+  options: {
+    responsive: false, cutout: '60%',
+    animation: { animateRotate: true, duration: 600, easing: 'easeInOutQuart' },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        enabled: true, backgroundColor: '#1a1828', titleColor: '#fffffe',
+        bodyColor: '#a7a9be', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, padding: 11,
+        callbacks: {
+          label: function(c) {
+            const tot = parties.slice(0, +slider.value).reduce((s,d)=>s+d.votes,0);
+            const pct = tot > 0 ? ((c.parsed/tot)*100).toFixed(2) : '0.00';
+            return ` ${c.parsed.toLocaleString()} votes (${pct}%)`;
+          }
+        }
+      }
+    }
+  }
+});
+
+let activeColors = [];
+let centerTimer  = null;
+
+function drawCenter(total) {
+  const w = ctx.canvas.width, h = ctx.canvas.height;
+  ctx.save();
+  ctx.font = `bold 14px 'DM Serif Display', serif`;
+  ctx.fillStyle = '#fffffe'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(total.toLocaleString(), w/2, h/2 - 9);
+  ctx.font = `9px 'DM Sans', sans-serif`; ctx.fillStyle = '#a7a9be';
+  ctx.fillText('TOTAL VOTES', w/2, h/2 + 10);
+  ctx.restore();
+}
+
+// ── Nepali digit converter ──────────────────────────────────────────────────
+function nepToArabic(str) {
+  const map = {'०':'0','१':'1','२':'2','३':'3','४':'4','५':'5','६':'6','७':'7','८':'8','९':'9'};
+  return str.replace(/[०-९]/g, d => map[d] || d);
+}
+
+// ── LIVE FETCH — tries 3 CORS proxies in order ──────────────────────────────
+const TARGET = 'https://result.election.gov.np/PRVoteChartResult2082.aspx';
+const PROXIES = [
+  url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&timestamp=${Date.now()}`,
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
+
+async function tryFetch(proxyFn) {
+  const r = await fetch(proxyFn(TARGET), { cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const json = await r.json().catch(() => r.text().then(t => ({ contents: t })));
+  return json.contents || json;
+}
+
+function parseVotes(html) {
+  if (!html || typeof html !== 'string') return [];
+
+  const parser = new DOMParser();
+  const doc    = parser.parseFromString(html, 'text/html');
+  const result = [];
+
+  // Strategy 1: look for <tr> rows with party name + vote count
+  doc.querySelectorAll('tr').forEach(row => {
+    const cells = Array.from(row.querySelectorAll('td'));
+    if (cells.length < 2) return;
+    // Try last cell as votes, second cell as name
+    cells.forEach((cell, ci) => {
+      const raw   = nepToArabic(cell.textContent.replace(/[,،\s]/g, '').trim());
+      const votes = parseInt(raw);
+      if (votes > 100 && ci > 0) {
+        const nameCell = cells[ci - 1];
+        const name     = nameCell.textContent.trim();
+        if (name && name.length > 2 && name.length < 80 && !/^\d+$/.test(name)) {
+          result.push({ name, votes });
+        }
+      }
+    });
+  });
+
+  // Strategy 2: look for spans/divs with class-based patterns
+  if (result.length < 3) {
+    doc.querySelectorAll('[class*="party"],[class*="Party"],[class*="vote"],[class*="Vote"]').forEach(el => {
+      const txt = nepToArabic(el.textContent.trim());
+      const num = parseInt(txt.replace(/[^0-9]/g,''));
+      if (num > 100) {
+        const prev = el.previousElementSibling;
+        if (prev) result.push({ name: prev.textContent.trim(), votes: num });
+      }
+    });
+  }
+
+  // Strategy 3: regex scan of raw HTML for Nepali/Arabic number patterns next to text
+  if (result.length < 3) {
+    // match: party name (nepali) followed by digits
+    const re = /([\u0900-\u097F][^<\d]{3,60}?)[^<\d]*?([\d,]+)/g;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const name  = m[1].trim().replace(/<[^>]+>/g,'').trim();
+      const votes = parseInt(nepToArabic(m[2].replace(/,/g,'')));
+      if (votes > 200 && name.length > 3 && name.length < 70) {
+        result.push({ name, votes });
+      }
+    }
+  }
+
+  // De-dup by name, keep highest vote per name
+  const map = {};
+  result.forEach(p => {
+    if (!map[p.name] || p.votes > map[p.name]) map[p.name] = p.votes;
+  });
+
+  return Object.entries(map)
+    .map(([name, votes]) => ({ name, votes }))
+    .filter(p => p.votes > 100 && p.name.length > 2)
+    .sort((a,b) => b.votes - a.votes)
+    .slice(0, 15);
+}
+
+async function fetchLive() {
+  liveDot.className = 'live-dot spin';
+  statusText.innerHTML = '<strong>Fetching...</strong> Connecting to Election Commission Nepal';
+
+  let html   = null;
+  let usedProxy = -1;
+
+  for (let i = 0; i < PROXIES.length; i++) {
+    try {
+      html = await tryFetch(PROXIES[i]);
+      usedProxy = i;
+      break;
+    } catch (e) {
+      console.warn(`Proxy ${i} failed:`, e.message);
+    }
+  }
+
+  if (!html) {
+    liveDot.className = 'live-dot error';
+    statusText.innerHTML = `<strong style="color:var(--red)">Offline</strong> · All proxies failed — showing last known data`;
+    setTime();
+    return;
+  }
+
+  const parsed = parseVotes(html);
+
+  if (parsed.length >= 3) {
+    liveParties = parsed;
+    if (!isOverridden) parties = liveParties.map(p => ({ ...p }));
+    liveDot.className = 'live-dot';
+    statusText.innerHTML = `<strong style="color:var(--green)">LIVE</strong> · ${parsed.length} parties · source: result.election.gov.np`;
+  } else {
+    // Got HTML but JS-rendered content missing — page is dynamic
+    liveDot.className = 'live-dot error';
+    statusText.innerHTML = `<strong style="color:var(--accent)">Limited</strong> · EC page is JS-rendered; showing last known data. <a href="https://result.election.gov.np/PRVoteChartResult2082.aspx" target="_blank" style="color:var(--blue)">Open source ↗</a>`;
+  }
+
+  setTime();
+  render();
+}
+
+function setTime() {
+  const t = new Date();
+  statusTime.textContent = t.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ── Build inputs ─────────────────────────────────────────────────────────────
+function buildInputs() {
+  const n = +slider.value;
+  inputsGrid.innerHTML = '';
+  parties.slice(0, n).forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'vote-input-row';
+    row.innerHTML = `
+      <div class="vote-input-label">
+        <span class="vote-dot" style="background:${palette[i]}"></span>${p.name}
+      </div>
+      <div class="vote-input-wrap">
+        <input type="number" min="0" step="1" value="${p.votes}" data-idx="${i}">
+        <span class="vote-suffix">votes</span>
+      </div>`;
+    row.querySelector('input').addEventListener('input', function() {
+      parties[+this.dataset.idx].votes = parseInt(this.value) || 0;
+      isOverridden = true;
+      renderChart(); renderLegend();
+    });
+    inputsGrid.appendChild(row);
+  });
+}
+
+// ── Chart + Legend ────────────────────────────────────────────────────────────
+function renderChart() {
+  const shown  = parties.slice(0, +slider.value);
+  const total  = shown.reduce((s,d)=>s+d.votes, 0);
+  const colors = shown.map((_,i)=>palette[i]);
+  activeColors = colors;
+  chart.data.labels = shown.map(d=>d.name);
+  chart.data.datasets[0].data = shown.map(d=>d.votes);
+  chart.data.datasets[0].backgroundColor = [...colors];
+  chart.update();
+  if (centerTimer) clearTimeout(centerTimer);
+  centerTimer = setTimeout(()=>drawCenter(total), 650);
+}
+
+function renderLegend() {
+  const shown = parties.slice(0, +slider.value);
+  const total = shown.reduce((s,d)=>s+d.votes, 0);
+  const maxV  = Math.max(...shown.map(d=>d.votes), 1);
+  legendEl.innerHTML = '';
+  shown.forEach((d, i) => {
+    const pct  = total > 0 ? ((d.votes/total)*100).toFixed(2) : '0.00';
+    const barW = ((d.votes/maxV)*100).toFixed(1);
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `
+      <div class="dot" style="background:${palette[i]}"></div>
+      <div class="legend-info">
+        <div class="legend-name"><span class="legend-rank">#${i+1}</span>${d.name}</div>
+        <div class="legend-meta">
+          <span class="legend-votes">${d.votes.toLocaleString()}</span>
+          <span class="legend-pct">${pct}%</span>
+        </div>
+        <div class="bar-wrap"><div class="bar-fill" style="width:${barW}%;background:${palette[i]}"></div></div>
+      </div>`;
+    item.addEventListener('mouseenter', () => {
+      chart.data.datasets[0].backgroundColor = activeColors.map((c,j)=>j===i?c:c+'44');
+      chart.update('none');
+      legendEl.querySelectorAll('.legend-item').forEach((el,j)=>el.classList.toggle('active',j===i));
+    });
+    item.addEventListener('mouseleave', () => {
+      chart.data.datasets[0].backgroundColor=[...activeColors];
+      chart.update('none');
+      legendEl.querySelectorAll('.legend-item').forEach(el=>el.classList.remove('active'));
+    });
+    legendEl.appendChild(item);
+  });
+}
+
+function render() {
+  const n = +slider.value;
+  badge.textContent = n;
+  slider.style.setProperty('--pct', (((n-1)/14)*100).toFixed(1) + '%');
+  buildInputs(); renderChart(); renderLegend();
+}
+
+resetBtn.addEventListener('click', () => {
+  isOverridden = false;
+  parties = liveParties.map(p => ({ ...p }));
+  render();
+});
+slider.addEventListener('input', render);
+
+// Start with seed so chart shows immediately, then fetch live
+render();
+fetchLive();
+setInterval(fetchLive, 60000);
+</script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nepal Election Live Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{
+background:#0f0e17;
+color:white;
+font-family:system-ui, Arial;
+margin:0;
+padding:25px;
+}
+
+h1{
+margin-bottom:5px;
+}
+
+#status{
+color:#ff8906;
+margin-bottom:20px;
+}
+
+.controls{
+margin-bottom:20px;
+}
+
+button{
+background:#ff8906;
+border:none;
+padding:8px 14px;
+border-radius:6px;
+cursor:pointer;
+font-weight:bold;
+}
+
+.grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:40px;
+}
+
+canvas{
+background:#16161a;
+padding:15px;
+border-radius:10px;
+}
+
+.party-list{
+margin-top:20px;
+}
+
+.party-row{
+display:flex;
+justify-content:space-between;
+padding:6px 0;
+border-bottom:1px solid #222;
+}
+
+.bar{
+height:6px;
+background:#ff8906;
+border-radius:3px;
+margin-top:4px;
+}
+
+.card{
+background:#16161a;
+padding:20px;
+border-radius:12px;
+}
+
+@media(max-width:800px){
+.grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+
+<body>
+
+<h1>Nepal Election Dashboard</h1>
+<div id="status">Loading live data...</div>
+
+<div class="controls">
+<button onclick="loadData()">Refresh</button>
+</div>
+
+<div class="grid">
+
+<div class="card">
+<h3>PR Vote Share</h3>
+<canvas id="voteChart"></canvas>
+</div>
+
+<div class="card">
+<h3>Seat Distribution</h3>
+<canvas id="seatChart"></canvas>
+</div>
+
+</div>
+
+<div class="card party-list">
+<h3>Party Rankings</h3>
+<div id="partyList"></div>
+</div>
+
+<script>
+
+const SOURCE="https://election.onlinekhabar.com/parties";
+
+const PROXIES=[
+"https://api.allorigins.win/raw?url=",
+"https://corsproxy.io/?url=",
+"https://api.codetabs.com/v1/proxy?quest="
+];
+
+function nepToNum(str){
+if(!str) return 0;
+return parseInt(
+str.replace(/[०-९]/g,d=>"०१२३४५६७८९".indexOf(d)).replace(/,/g,"")
+);
+}
+
+async function fetchHTML(){
+
+for(const p of PROXIES){
+try{
+const res=await fetch(p+encodeURIComponent(SOURCE));
+if(res.ok){
+return await res.text();
+}
+}catch(e){}
+}
+
+throw new Error("Proxy failed");
+}
+
+function parseData(html){
+
+const doc=new DOMParser().parseFromString(html,"text/html");
+
+const text=doc.body.innerText;
+
+const regex=/(.*?)\s*समानुपातिक मत\s*([०-९,]+)/g;
+
+let m;
+const parties=[];
+
+while((m=regex.exec(text))!==null){
+
+const name=m[1].trim().split("\n").pop().trim();
+const votes=nepToNum(m[2]);
+
+if(name && votes>0){
+parties.push({
+name:name,
+votes:votes,
+wins:0,
+seats:0
+});
+}
+
+}
+
+return parties;
+
+}
+
+let voteChart;
+let seatChart;
+
+function render(data){
+
+data.sort((a,b)=>b.votes-a.votes);
+
+const labels=data.slice(0,10).map(p=>p.name);
+const votes=data.slice(0,10).map(p=>p.votes);
+const seats=data.slice(0,10).map(p=>p.seats);
+
+if(voteChart) voteChart.destroy();
+if(seatChart) seatChart.destroy();
+
+voteChart=new Chart(
+document.getElementById("voteChart"),
+{
+type:"doughnut",
+data:{
+labels:labels,
+datasets:[{data:votes}]
+},
+options:{
+plugins:{legend:{labels:{color:"white"}}}
+}
+}
+);
+
+seatChart=new Chart(
+document.getElementById("seatChart"),
+{
+type:"bar",
+data:{
+labels:labels,
+datasets:[{label:"Seats",data:seats}]
+},
+options:{
+plugins:{legend:{labels:{color:"white"}}},
+scales:{
+x:{ticks:{color:"white"}},
+y:{ticks:{color:"white"}}
+}
+}
+}
+);
+
+const total=data.reduce((a,b)=>a+b.votes,0);
+
+const list=document.getElementById("partyList");
+list.innerHTML="";
+
+data.slice(0,20).forEach(p=>{
+
+const pct=((p.votes/total)*100).toFixed(2);
+
+const div=document.createElement("div");
+div.className="party-row";
+
+div.innerHTML=`
+<div style="width:70%">
+${p.name}
+<div class="bar" style="width:${pct}%"></div>
+</div>
+<div>
+${p.votes.toLocaleString()} (${pct}%)
+</div>
+`;
+
+list.appendChild(div);
+
+});
+
+}
+
+async function loadData(){
+
+document.getElementById("status").innerText="Fetching live data...";
+
+try{
+
+const html=await fetchHTML();
+
+const data=parseData(html);
+
+render(data);
+
+document.getElementById("status").innerText="Live";
+
+}catch(e){
+
+document.getElementById("status").innerText="Live data unavailable";
+
+}
+
+}
+
+loadData();
+setInterval(loadData,60000);
+
+</script>
+
+</body>
+</html>
